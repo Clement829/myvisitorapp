@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Guard QR Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+      max-width: 480px;
+      margin: auto;
+      color: #333;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: auto;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    #uploadQR {
+      display: block;
+      width: 100%;
+      margin: 20px 0;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    #result {
+      background: #fff;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h2>Scan Visitor QR</h2>
+  <div id="reader"></div>
+  <input type="file" accept="image/*" id="uploadQR">
+  <div id="result"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqe8fYpR3bmRDl7ahSJvkOdE1WdQAzdk0",
+      authDomain: "visitorqrsystem.firebaseapp.com",
+      databaseURL: "https://visitorqrsystem-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "visitorqrsystem",
+      storageBucket: "visitorqrsystem.firebasestorage.app",
+      messagingSenderId: "645258378603",
+      appId: "1:645258378603:web:678e67b9be9d75589c602e"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function showInfo(visitor) {
+      const container = document.getElementById('result');
+      if (visitor) {
+        container.innerHTML = `
+          <p><strong>Name:</strong> ${visitor.name}</p>
+          <p><strong>Contact:</strong> ${visitor.contact}</p>
+          <p><strong>Date:</strong> ${visitor.date}</p>
+          <p><strong>Time:</strong> ${visitor.time}</p>
+          <p><strong>Vehicle:</strong> ${visitor.vehicle}</p>`;
+      } else {
+        container.innerText = 'Visitor not found or expired.';
+      }
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+
+    function startScanner() {
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          html5QrCode.start(
+            devices[0].id,
+            { fps: 10, qrbox: 250 },
+            qrCodeMessage => {
+              try {
+                const data = JSON.parse(qrCodeMessage);
+                const id = data.id;
+                db.ref('visitors/' + id).once('value', snapshot => {
+                  showInfo(snapshot.val());
+                });
+              } catch (e) {
+                document.getElementById('result').innerText = 'Invalid QR Code';
+              }
+            },
+            error => {}
+          );
+        } else {
+          document.getElementById('result').innerText = 'No camera found on this device.';
+        }
+      }).catch(err => {
+        document.getElementById('result').innerText = 
+          'Camera access error. Please ensure camera permission is allowed in browser settings.';
+      });
+    }
+
+    document.getElementById('uploadQR').addEventListener('change', function (e) {
+      if (e.target.files.length === 0) return;
+      const file = e.target.files[0];
+      html5QrCode.scanFile(file, true)
+        .then(decodedText => {
+          try {
+            const data = JSON.parse(decodedText);
+            const id = data.id;
+            db.ref('visitors/' + id).once('value', snapshot => {
+              showInfo(snapshot.val());
+            });
+          } catch (err) {
+            document.getElementById('result').innerText = 'Invalid QR Code image';
+          }
+        })
+        .catch(err => {
+          document.getElementById('result').innerText = 'Failed to read QR Code: ' + err;
+        });
+    });
+
+    // Delay startup to allow secure origin
+    window.addEventListener('load', () => {
+      if (location.protocol === 'https:') {
+        startScanner();
+      } else {
+        document.getElementById('result').innerText =
+          'Camera requires HTTPS. Use a secure link (https://...)';
+      }
+    });
+  </script>
+</body>
+</html>

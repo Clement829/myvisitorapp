@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Visitor Entry</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 480px; margin: auto; }
+    input, button { width: 100%; padding: 12px; margin: 6px 0; font-size: 1rem; }
+    #qrcode canvas { margin-top: 20px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h2>Visitor Form</h2>
+  <form id="visitorForm">
+    <input id="name" placeholder="Name" required>
+    <input id="contact" placeholder="Contact" required>
+    <input id="date" type="date" required>
+    <input id="time" type="time" required>
+    <input id="vehicle" placeholder="Vehicle No">
+    <button type="submit">Save & Generate QR</button>
+  </form>
+  <div id="qrcode"></div>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqe8fYpR3bmRDl7ahSJvkOdE1WdQAzdk0",
+      authDomain: "visitorqrsystem.firebaseapp.com",
+      databaseURL: "https://visitorqrsystem-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "visitorqrsystem",
+      storageBucket: "visitorqrsystem.firebasestorage.app",
+      messagingSenderId: "645258378603",
+      appId: "1:645258378603:web:678e67b9be9d75589c602e"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    document.getElementById('visitorForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const visitor = {
+        name: document.getElementById('name').value,
+        contact: document.getElementById('contact').value,
+        date: document.getElementById('date').value,
+        time: document.getElementById('time').value,
+        vehicle: document.getElementById('vehicle').value,
+        timestamp: Date.now()
+      };
+      const newRef = db.ref('visitors').push();
+      newRef.set(visitor);
+      const qrData = JSON.stringify({ id: newRef.key });
+      document.getElementById('qrcode').innerHTML = '';
+      const canvas = document.createElement('canvas');
+      QRCode.toCanvas(canvas, qrData, (err) => {
+        if (!err) {
+          document.getElementById('qrcode').appendChild(canvas);
+        } else {
+          alert('Failed to generate QR code');
+        }
+      });
+      alert('Saved to Firebase & QR generated!');
+      document.getElementById('visitorForm').reset();
+    });
+  </script>
+</body>
+</html>
