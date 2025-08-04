@@ -37,31 +37,34 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    document.getElementById('visitorForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const visitor = {
-        name: document.getElementById('name').value,
-        contact: document.getElementById('contact').value,
-        date: document.getElementById('date').value,
-        time: document.getElementById('time').value,
-        vehicle: document.getElementById('vehicle').value,
-        timestamp: Date.now()
-      };
-      const newRef = db.ref('visitors').push();
-      newRef.set(visitor);
-      const qrData = JSON.stringify({ id: newRef.key });
-      document.getElementById('qrcode').innerHTML = '';
-      const canvas = document.createElement('canvas');
-      QRCode.toCanvas(canvas, qrData, (err) => {
-        if (!err) {
-          document.getElementById('qrcode').appendChild(canvas);
-        } else {
-          alert('Failed to generate QR code');
-        }
-      });
-      alert('Saved to Firebase & QR generated!');
-      document.getElementById('visitorForm').reset();
+document.getElementById('visitorForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const visitor = {
+    name: document.getElementById('name').value,
+    contact: document.getElementById('contact').value,
+    date: document.getElementById('date').value,
+    time: document.getElementById('time').value,
+    vehicle: document.getElementById('vehicle').value,
+    timestamp: Date.now()
+  };
+  const newRef = db.ref('visitors').push();
+  newRef.set(visitor).then(() => {
+    const qrData = JSON.stringify({ id: newRef.key });
+    document.getElementById('qrcode').innerHTML = '';
+    const canvas = document.createElement('canvas');
+    QRCode.toCanvas(canvas, qrData, (err) => {
+      if (!err) {
+        document.getElementById('qrcode').appendChild(canvas);
+      } else {
+        alert('Failed to generate QR code');
+      }
     });
+    alert('Saved to Firebase & QR generated!');
+    document.getElementById('visitorForm').reset();
+  }).catch((error) => {
+    alert('Failed to save visitor: ' + error);
+  });
+});
   </script>
 </body>
 </html>
