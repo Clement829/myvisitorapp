@@ -85,13 +85,30 @@
       }
     }
 
-    function startCamera(cameraId) {
-      if (html5QrCode._isScanning) {
-        html5QrCode.stop().then(() => runScan(cameraId));
-      } else {
-        runScan(cameraId);
+function startCamera(cameraId) {
+  html5QrCode.stop().catch(() => {
+    // ignore if not scanning
+  }).then(() => {
+    html5QrCode.start(
+      cameraId,
+      { fps: 10, qrbox: 250 },
+      qrCodeMessage => {
+        try {
+          const data = JSON.parse(qrCodeMessage);
+          const id = data.id;
+          db.ref('visitors/' + id).once('value', snapshot => {
+            showInfo(snapshot.val());
+          });
+        } catch (e) {
+          document.getElementById('result').innerText = 'Invalid QR Code';
+        }
+      },
+      error => {
+        console.error('QR scan error:', error);
       }
-    }
+    );
+  });
+}
 
     function runScan(cameraId) {
       html5QrCode.start(
