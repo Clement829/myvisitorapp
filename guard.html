@@ -30,7 +30,7 @@
       overflow: hidden;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-    #uploadQR {
+    #uploadQR, #markEntered {
       display: block;
       width: 100%;
       margin: 10px 0;
@@ -38,6 +38,7 @@
       font-size: 1rem;
       border-radius: 6px;
       border: 1px solid #ccc;
+      background: #f1f1f1;
     }
     #result {
       background: #fff;
@@ -46,6 +47,9 @@
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -53,6 +57,7 @@
   <div id="reader"></div>
   <input type="file" accept="image/*" id="uploadQR" />
   <div id="result"></div>
+  <button id="markEntered" class="hidden">✅ Mark as Entered</button>
 
   <script>
     // Firebase config
@@ -69,23 +74,33 @@
     const db = firebase.database();
 
     const html5QrCode = new Html5Qrcode("reader");
+    let currentVisitor = null;
+    let currentVisitorId = null;
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString();
+    }
 
     function showInfo(visitor) {
       const container = document.getElementById('result');
+      const timestamp = Date.now();
       container.innerHTML = `
         <p><strong>Name:</strong> ${visitor.name}</p>
         <p><strong>Contact:</strong> ${visitor.contact}</p>
         <p><strong>Visiting House:</strong> ${visitor.house}</p>
         <p><strong>Date:</strong> ${visitor.date}</p>
         <p><strong>Time:</strong> ${visitor.time}</p>
-        <p><strong>Vehicle:</strong> ${visitor.vehicle || '-'}</p>`;
+        <p><strong>Vehicle:</strong> ${visitor.vehicle || '-'}</p>
+        <p><strong>Scanned at:</strong> ${formatTime(timestamp)}</p>
+      `;
+      document.getElementById('markEntered').classList.remove('hidden');
     }
 
     function fetchVisitor(id) {
       db.ref('visitors/' + id).once('value', snapshot => {
         const visitor = snapshot.val();
         const resultDiv = document.getElementById('result');
-
         if (!visitor) {
           resultDiv.innerText = 'Visitor not found or expired.';
           return;
@@ -93,14 +108,16 @@
 
         const now = Date.now();
         const age = now - visitor.timestamp;
-        const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+        const maxAge = 30 * 24 * 60 * 60 * 1000;
 
         if (age > maxAge) {
           resultDiv.innerText = 'QR Code expired (older than 30 days).';
           return;
         }
 
-        showInfo(visitor); // valid entry
+        currentVisitor = visitor;
+        currentVisitorId = id;
+        showInfo(visitor);
       });
     }
 
@@ -129,7 +146,6 @@
       });
     }
 
-    // Optional: scan from uploaded image
     document.getElementById('uploadQR').addEventListener('change', function (e) {
       if (e.target.files.length === 0) return;
       const file = e.target.files[0];
@@ -152,7 +168,25 @@
         });
     });
 
-    // Start scan on page load (must be HTTPS)
+    // ✅ Mark check-in and log to /entries
+    document.getElementById('markEntered').addEventListener('click', () => {
+      if (!currentVisitor || !currentVisitorId) return;
+
+      const entryData = {
+        ...currentVisitor,
+        checkinTime: Date.now()
+      };
+
+      db.ref('entries/' + currentVisitorId).set(entryData)
+        .then(() => {
+          alert('Check-in recorded successfully!');
+          document.getElementById('markEntered').classList.add('hidden');
+        })
+        .catch(err => {
+          alert('Failed to log entry: ' + err);
+        });
+    });
+
     window.addEventListener('load', () => {
       if (location.protocol === 'https:') {
         startBackCameraScan();
