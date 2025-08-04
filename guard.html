@@ -30,7 +30,7 @@
       overflow: hidden;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-    #cameraSelect, #uploadQR {
+    #uploadQR {
       display: block;
       width: 100%;
       margin: 10px 0;
@@ -50,12 +50,12 @@
 </head>
 <body>
   <h2>Scan Visitor QR</h2>
-  <select id="cameraSelect"><option>Loading cameras...</option></select>
   <div id="reader"></div>
-  <input type="file" accept="image/*" id="uploadQR">
+  <input type="file" accept="image/*" id="uploadQR" />
   <div id="result"></div>
 
   <script>
+    // 🔐 Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDqe8fYpR3bmRDl7ahSJvkOdE1WdQAzdk0",
       authDomain: "visitorqrsystem.firebaseapp.com",
@@ -65,11 +65,11 @@
       messagingSenderId: "645258378603",
       appId: "1:645258378603:web:678e67b9be9d75589c602e"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
     const html5QrCode = new Html5Qrcode("reader");
-    let currentCameraId = null;
 
     function showInfo(visitor) {
       const container = document.getElementById('result');
@@ -85,34 +85,9 @@
       }
     }
 
-function startCamera(cameraId) {
-  html5QrCode.stop().catch(() => {
-    // ignore if not scanning
-  }).then(() => {
-    html5QrCode.start(
-      cameraId,
-      { fps: 10, qrbox: 250 },
-      qrCodeMessage => {
-        try {
-          const data = JSON.parse(qrCodeMessage);
-          const id = data.id;
-          db.ref('visitors/' + id).once('value', snapshot => {
-            showInfo(snapshot.val());
-          });
-        } catch (e) {
-          document.getElementById('result').innerText = 'Invalid QR Code';
-        }
-      },
-      error => {
-        console.error('QR scan error:', error);
-      }
-    );
-  });
-}
-
-    function runScan(cameraId) {
+    function startBackCameraScan() {
       html5QrCode.start(
-        cameraId,
+        { facingMode: { exact: "environment" } },
         { fps: 10, qrbox: 250 },
         qrCodeMessage => {
           try {
@@ -125,31 +100,16 @@ function startCamera(cameraId) {
             document.getElementById('result').innerText = 'Invalid QR Code';
           }
         },
-        error => {}
-      );
+        error => {
+          console.warn('QR scan error:', error);
+        }
+      ).catch(err => {
+        document.getElementById('result').innerText =
+          'Failed to start camera: ' + err;
+      });
     }
 
-    Html5Qrcode.getCameras().then(devices => {
-      const select = document.getElementById('cameraSelect');
-      select.innerHTML = ''; // Clear old options
-      devices.forEach((d, i) => {
-        const option = document.createElement('option');
-        option.value = d.id;
-        option.text = d.label || `Camera ${i + 1}`;
-        select.appendChild(option);
-      });
-
-      currentCameraId = devices[0].id;
-      startCamera(currentCameraId);
-
-      select.addEventListener('change', () => {
-        currentCameraId = select.value;
-        startCamera(currentCameraId);
-      });
-    }).catch(err => {
-      document.getElementById('result').innerText = 'Failed to get cameras: ' + err;
-    });
-
+    // Scan image upload
     document.getElementById('uploadQR').addEventListener('change', function (e) {
       if (e.target.files.length === 0) return;
       const file = e.target.files[0];
@@ -166,8 +126,19 @@ function startCamera(cameraId) {
           }
         })
         .catch(err => {
-          document.getElementById('result').innerText = 'Failed to read QR Code: ' + err;
+          document.getElementById('result').innerText =
+            'Failed to read QR Code: ' + err;
         });
+    });
+
+    // Start scan on load (HTTPS required)
+    window.addEventListener('load', () => {
+      if (location.protocol === 'https:') {
+        startBackCameraScan();
+      } else {
+        document.getElementById('result').innerText =
+          'Camera access requires HTTPS connection.';
+      }
     });
   </script>
 </body>
