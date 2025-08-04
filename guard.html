@@ -55,7 +55,7 @@
   <div id="result"></div>
 
   <script>
-    // 🔐 Firebase config
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDqe8fYpR3bmRDl7ahSJvkOdE1WdQAzdk0",
       authDomain: "visitorqrsystem.firebaseapp.com",
@@ -65,7 +65,6 @@
       messagingSenderId: "645258378603",
       appId: "1:645258378603:web:678e67b9be9d75589c602e"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -73,16 +72,36 @@
 
     function showInfo(visitor) {
       const container = document.getElementById('result');
-      if (visitor) {
-        container.innerHTML = `
-          <p><strong>Name:</strong> ${visitor.name}</p>
-          <p><strong>Contact:</strong> ${visitor.contact}</p>
-          <p><strong>Date:</strong> ${visitor.date}</p>
-          <p><strong>Time:</strong> ${visitor.time}</p>
-          <p><strong>Vehicle:</strong> ${visitor.vehicle}</p>`;
-      } else {
-        container.innerText = 'Visitor not found or expired.';
-      }
+      container.innerHTML = `
+        <p><strong>Name:</strong> ${visitor.name}</p>
+        <p><strong>Contact:</strong> ${visitor.contact}</p>
+        <p><strong>Visiting House:</strong> ${visitor.house}</p>
+        <p><strong>Date:</strong> ${visitor.date}</p>
+        <p><strong>Time:</strong> ${visitor.time}</p>
+        <p><strong>Vehicle:</strong> ${visitor.vehicle || '-'}</p>`;
+    }
+
+    function fetchVisitor(id) {
+      db.ref('visitors/' + id).once('value', snapshot => {
+        const visitor = snapshot.val();
+        const resultDiv = document.getElementById('result');
+
+        if (!visitor) {
+          resultDiv.innerText = 'Visitor not found or expired.';
+          return;
+        }
+
+        const now = Date.now();
+        const age = now - visitor.timestamp;
+        const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+        if (age > maxAge) {
+          resultDiv.innerText = 'QR Code expired (older than 30 days).';
+          return;
+        }
+
+        showInfo(visitor); // valid entry
+      });
     }
 
     function startBackCameraScan() {
@@ -92,12 +111,13 @@
         qrCodeMessage => {
           try {
             const data = JSON.parse(qrCodeMessage);
-            const id = data.id;
-            db.ref('visitors/' + id).once('value', snapshot => {
-              showInfo(snapshot.val());
-            });
+            if (data.id) {
+              fetchVisitor(data.id);
+            } else {
+              document.getElementById('result').innerText = 'Invalid QR format.';
+            }
           } catch (e) {
-            document.getElementById('result').innerText = 'Invalid QR Code';
+            document.getElementById('result').innerText = 'Invalid QR Code.';
           }
         },
         error => {
@@ -109,7 +129,7 @@
       });
     }
 
-    // Scan image upload
+    // Optional: scan from uploaded image
     document.getElementById('uploadQR').addEventListener('change', function (e) {
       if (e.target.files.length === 0) return;
       const file = e.target.files[0];
@@ -117,10 +137,11 @@
         .then(decodedText => {
           try {
             const data = JSON.parse(decodedText);
-            const id = data.id;
-            db.ref('visitors/' + id).once('value', snapshot => {
-              showInfo(snapshot.val());
-            });
+            if (data.id) {
+              fetchVisitor(data.id);
+            } else {
+              document.getElementById('result').innerText = 'Invalid QR format.';
+            }
           } catch (err) {
             document.getElementById('result').innerText = 'Invalid QR Code image';
           }
@@ -131,7 +152,7 @@
         });
     });
 
-    // Start scan on load (HTTPS required)
+    // Start scan on page load (must be HTTPS)
     window.addEventListener('load', () => {
       if (location.protocol === 'https:') {
         startBackCameraScan();
