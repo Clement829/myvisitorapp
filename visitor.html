@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,14 +16,17 @@
 <body>
   <h2>Visitor Form</h2>
   <form id="visitorForm">
-    <input id="name" placeholder="Name" required>
-    <input id="contact" placeholder="Contact" required>
+    <input id="name" placeholder="Visitor Name" required>
+    <input id="contact" placeholder="Contact Number" required>
+    <input id="house" placeholder="Visiting House" required>
     <input id="date" type="date" required>
     <input id="time" type="time" required>
-    <input id="vehicle" placeholder="Vehicle No">
+    <input id="vehicle" placeholder="Vehicle Number (optional)">
     <button type="submit">Save & Generate QR</button>
   </form>
+
   <div id="qrcode"></div>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDqe8fYpR3bmRDl7ahSJvkOdE1WdQAzdk0",
@@ -35,36 +37,44 @@
       messagingSenderId: "645258378603",
       appId: "1:645258378603:web:678e67b9be9d75589c602e"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-document.getElementById('visitorForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const visitor = {
-    name: document.getElementById('name').value,
-    contact: document.getElementById('contact').value,
-    date: document.getElementById('date').value,
-    time: document.getElementById('time').value,
-    vehicle: document.getElementById('vehicle').value,
-    timestamp: Date.now()
-  };
-  const newRef = db.ref('visitors').push();
-  newRef.set(visitor).then(() => {
-    const qrData = JSON.stringify({ id: newRef.key });
-    document.getElementById('qrcode').innerHTML = '';
-    const canvas = document.createElement('canvas');
-    QRCode.toCanvas(canvas, qrData, (err) => {
-      if (!err) {
-        document.getElementById('qrcode').appendChild(canvas);
-      } else {
-        alert('Failed to generate QR code');
-      }
+
+    document.getElementById('visitorForm').addEventListener('submit', e => {
+      e.preventDefault();
+
+      const visitor = {
+        name: document.getElementById('name').value,
+        contact: document.getElementById('contact').value,
+        house: document.getElementById('house').value,
+        date: document.getElementById('date').value,
+        time: document.getElementById('time').value,
+        vehicle: document.getElementById('vehicle').value,
+        timestamp: Date.now()
+      };
+
+      const newRef = db.ref('visitors').push();
+      newRef.set(visitor).then(() => {
+        const qrData = JSON.stringify({ id: newRef.key });
+
+        const canvas = document.createElement('canvas');
+        QRCode.toCanvas(canvas, qrData, (err) => {
+          const qrContainer = document.getElementById('qrcode');
+          qrContainer.innerHTML = '';
+          if (!err) {
+            qrContainer.appendChild(canvas);
+          } else {
+            alert('Failed to generate QR code');
+          }
+        });
+
+        alert('Visitor info saved & QR code generated!');
+        document.getElementById('visitorForm').reset();
+      }).catch((error) => {
+        alert('Error saving visitor: ' + error.message);
+      });
     });
-    alert('Saved to Firebase & QR generated!');
-    document.getElementById('visitorForm').reset();
-  }).catch((error) => {
-    alert('Failed to save visitor: ' + error);
-  });
-});
   </script>
 </body>
 </html>
